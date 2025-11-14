@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define SOCKET_PATH "hw-c.sock"
+#define SOCKET_PATH "hw-out.sock"
 
 int main(void) {
     FCGX_Request request;

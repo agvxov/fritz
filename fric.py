@@ -43,15 +43,22 @@ def unlink_sockets(signum, frame):
 		unlink(a.sock_path)
 
 def handle_event(event : str, data : {}):
-	message = data.get("message", "").encode()
+	if "MESSAGE" in data:
+		message = data["MESSAGE"].encode()
+		del data["MESSAGE"]
+	else:
+		message = ''
+
 	for b in event_queues[event]:
-		response = b.client.request({}, message)
+		response = b.client.request(data, message)
 		r = response.decode(errors='ignore').strip()
+		print("<< " + r)
 		yield r
+
 	yield None
 
 class Fric(SimpleIRCClient):
-	def __init__(self, server, name, auto_join_list):
+	def __init__(self, server, name, auto_join_list, port=6697, is_ssl=True):
 		def ssl_wrapper(sock):
 			context = ssl.create_default_context()
 			return context.wrap_socket(sock, server_hostname="chud.cyou")
@@ -59,12 +66,17 @@ class Fric(SimpleIRCClient):
 		self.connection_time = 0
 		self.auto_join_list  = auto_join_list
 
+		if port < 6690:
+			is_ssl = False
+
+		factory = Factory(wrapper=ssl_wrapper) if is_ssl else irc.connection.Factory()
+
 		super().__init__()
 		super().connect(
 			server,
-			6697,
+			port,
 			name,
-			connect_factory = Factory(wrapper=ssl_wrapper)
+			connect_factory = factory
 		)
 
 		signal.signal(signal.SIGINT, unlink_sockets)
@@ -76,11 +88,12 @@ class Fric(SimpleIRCClient):
 			self.reactor.process_once(timeout=.2)
 
 	def run_event_handler(self, event_name: str, data: {}):
+		print(f">> {event_name}: {{{data}}}")
 		gen = handle_event(event_name, data)
 		for response in gen:
 			if response is None: break
-			if response != "" and "channel" in data:
-				self.connection.privmsg(data["channel"], response)
+			if response != "" and "CHANNEL" in data:
+				self.connection.privmsg(data["CHANNEL"], response)
 
 	def on_welcome(self, connection, event):
 		self.connection_time = time()
@@ -91,36 +104,36 @@ class Fric(SimpleIRCClient):
 
 	def on_join(self, connection, event):
 		records = {
-			"username": event.source.nick,
-			"channel": event.target,
+			"USERNAME" : event.source.nick,
+			"CHANNEL"  : event.target,
 		}
 		self.run_event_handler("join", records)
 
 	def on_pubmsg(self, connection, event):
 		records = {
-			"username": event.source.nick,
-			"channel": event.target,
-			"message": event.arguments[0],
+			"USERNAME" : event.source.nick,
+			"CHANNEL"  : event.target,
+			"MESSAGE"  : event.arguments[0],
 		}
 		self.run_event_handler("chan_msg", records)
 
 	def on_privmsg(self, connection, event):
 		records = {
-			"username": event.source.nick,
-			"channel": event.source.nick,
-			"message": event.arguments[0],
+			"USERNAME" : event.source.nick,
+			"CHANNEL"  : event.source.nick,
+			"MESSAGE"  : event.arguments[0],
 		}
 		self.run_event_handler("priv_msg", records)
 
 	def on_part(self, connection, event):
 		records = {
-			"username": event.source.nick,
-			"channel": event.target,
+			"USERNAME" : event.source.nick,
+			"CHANNEL"  : event.target,
 		}
 		self.run_event_handler("part", records)
 
 	def on_quit(self, connection, event):
 		records = {
-			"message": event.arguments[0] if event.arguments else "",
+			"MESSAGE" : event.arguments[0] if event.arguments else "",
 		}
 		self.run_event_handler("quit", records)

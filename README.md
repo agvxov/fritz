@@ -40,7 +40,8 @@ Examples of events would be `join`, `chan_msg` or `priv_msg`.
 The following environment variables could be defined depending on the event:
 * USERNAME (name of the triggering user)
 * CHANNEL (source chan)
-* MESSAGE (text of the triggering event)
+
+Text of the triggering event is delievered to `stdin`.
 
 The first line of the response is a metadata header for Fritz,
 everything else is a message that should be posted on the server.

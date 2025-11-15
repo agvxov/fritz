@@ -50,8 +50,9 @@ If the message body is an empty string, it shall not be posted by Fritz.
 
 # Usage
 To run a Fritz bot, you need a run script.
-The commented example `run_script.py` is provided for your information.
+
 There is no Fritz CLI, however a run script could easily implement one.
 
-# Notes
+The commented example `run_script.py` is provided for your information.
+
 The `arsenal/` directory contains a collection of Fritz compatible bot implementations.

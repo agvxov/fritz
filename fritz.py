@@ -9,6 +9,10 @@ from fcgi_client import FastCGIClient
 from irc.client import SimpleIRCClient, ServerConnectionError
 from irc.connection import Factory
 
+# --- ------- ---
+# --- Private ---
+# --- ------- ---
+
 arms = []
 event_queues = {
 	'join'     : [],
@@ -18,39 +22,32 @@ event_queues = {
 	'chan_msg' : [],
 }
 
-class Fric_arm:
+# FCGI process wrapper
+class Fritz_arm:
 	def __init__(self, name : str) -> None:
 		self.name      = name
 		self.sock_path = name.replace('.', '-') + ".sock"
 		self.client    = FastCGIClient(f"unix://{self.sock_path}")
 		pid = fork()
 		if pid == 0:
-			ctypes.CDLL("libc.so.6").prctl(1, signal.SIGTERM)
+			ctypes.CDLL("libc.so.6").prctl(1, signal.SIGTERM) # NOTE non-portable
 		else:
 			execvp(self.name, f"{name}".split(' '))
 	def request(self, params={}, stdin=b''):
 		return self.client.request(params, stdin)
 
-def add_arm(name, events):
-	arm = Fric_arm(name)
-	arms.append(arm)
-	for event in events:
-		event_queues[event].append(arm)
-
-
 def sigint_handler(signum, frame):
 	def unlink_sockets():
-		for a in arms:
-			unlink(a.sock_path)
+		for a in arms: unlink(a.sock_path)
 	unlink_sockets()
 	exit(0)
 
 def handle_event(event : str, data : {}):
+	message = ''
+
 	if "MESSAGE" in data:
 		message = data["MESSAGE"].encode()
-		del data["MESSAGE"]
-	else:
-		message = ''
+		del data["MESSAGE"] # remove from passed env
 
 	for b in event_queues[event]:
 		response = b.client.request(data, message)
@@ -60,7 +57,18 @@ def handle_event(event : str, data : {}):
 
 	yield None
 
-class Fric(SimpleIRCClient):
+
+# --- ------ ---
+# --- Public ---
+# --- ------ ---
+
+def add_arm(name, events):
+	arm = Fritz_arm(name)
+	arms.append(arm)
+	for event in events:
+		event_queues[event].append(arm)
+
+class Fritz(SimpleIRCClient):
 	def __init__(self, server, name, auto_join_list, port=6697, is_ssl=True):
 		def ssl_wrapper(sock):
 			context = ssl.create_default_context()
@@ -109,7 +117,7 @@ class Fric(SimpleIRCClient):
 	def on_welcome(self, connection, event):
 		self.connection_time = time()
 		for chan in self.auto_join_list: connection.join(chan)
-		print(f"-- Fric online @ {connection.server_address}")
+		print(f"-- Fritz online @ {connection.server_address}")
 
 	# === Common event handlers ===
 

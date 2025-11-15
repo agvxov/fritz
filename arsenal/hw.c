@@ -2,8 +2,10 @@
 #include <fcgiapp.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define SOCKET_PATH "hw-out.sock"
+const char msg[] = "Hello from C!";
 
 int main(void) {
     FCGX_Request request;
@@ -19,8 +21,10 @@ int main(void) {
     FCGX_InitRequest(&request, sock, 0);
 
     while (FCGX_Accept_r(&request) == 0) {
-		const char buffer[] = "Hello from C!";
-		FCGX_PutStr(buffer, sizeof(buffer)-1, request.out);
+		const char * const target = FCGX_GetParam("CHANNEL", request.envp);
+		FCGX_PutStr(target, strlen(target), request.out);
+		FCGX_PutStr("\n", 1, request.out);
+		FCGX_PutStr(msg, sizeof(msg)-1, request.out);
         FCGX_Finish_r(&request);
     }
 

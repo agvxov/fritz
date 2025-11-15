@@ -28,8 +28,7 @@ class Fric_arm:
 			ctypes.CDLL("libc.so.6").prctl(1, signal.SIGTERM)
 		else:
 			execvp(self.name, f"{name}".split(' '))
-	def request(self, params=None, stdin=b''):
-		params = params or {}
+	def request(self, params={}, stdin=b''):
 		return self.client.request(params, stdin)
 
 def add_arm(name, events):
@@ -38,9 +37,13 @@ def add_arm(name, events):
 	for event in events:
 		event_queues[event].append(arm)
 
-def unlink_sockets(signum, frame):
-	for a in arms:
-		unlink(a.sock_path)
+
+def sigint_handler(signum, frame):
+	def unlink_sockets():
+		for a in arms:
+			unlink(a.sock_path)
+	unlink_sockets()
+	exit(0)
 
 def handle_event(event : str, data : {}):
 	if "MESSAGE" in data:
@@ -79,7 +82,7 @@ class Fric(SimpleIRCClient):
 			connect_factory = factory
 		)
 
-		signal.signal(signal.SIGINT, unlink_sockets)
+		signal.signal(signal.SIGINT, sigint_handler)
 
 		self.run()
 
@@ -92,8 +95,16 @@ class Fric(SimpleIRCClient):
 		gen = handle_event(event_name, data)
 		for response in gen:
 			if response is None: break
-			if response != "" and "CHANNEL" in data:
-				self.connection.privmsg(data["CHANNEL"], response)
+			if response != "":
+				try:
+					lines    = response.splitlines()
+					metadata = lines[0].strip()
+					target   = metadata
+					body     = lines[1]
+				except:
+					print("!! Invalid response.")
+					continue
+				self.connection.privmsg(target, body)
 
 	def on_welcome(self, connection, event):
 		self.connection_time = time()

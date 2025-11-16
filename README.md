@@ -36,11 +36,14 @@ Each FCGI program subscribes to one or many events
 (instead of corresponding to end points)
 and all of them will be called in the order of registration on said event.
 Examples of events would be `join`, `chan_msg` or `priv_msg`.
+To see what is implemented, consult the top of the source.
+The special (non-IRC) event `poll` is provided which will be invoked periodically.
 
 The following environment variables could be defined depending on the event:
 * USERNAME (name of the triggering user)
 * CHANNEL (source chan)
 * JOINED (list of currently joined chans)
+* EVENT (name of the event as specifiable to Fritz)
 
 Text of the triggering event is delievered to `stdin`.
 

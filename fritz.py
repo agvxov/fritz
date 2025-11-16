@@ -11,6 +11,7 @@ from fcgi_client import FastCGIClient
 from irc.client import SimpleIRCClient, ServerConnectionError
 from irc.connection import Factory
 
+# Controls the poll period. In seconds.
 poll_tick = 1
 
 # --- ------- ---

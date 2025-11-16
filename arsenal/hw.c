@@ -1,8 +1,8 @@
 // @BAKE gcc -o $*.out $@ -lfcgi
-#include <fcgiapp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcgiapp.h>
 
 #define SOCKET_PATH "hw-out.sock"
 const char msg[] = "Hello from C!";

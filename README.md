@@ -40,6 +40,7 @@ Examples of events would be `join`, `chan_msg` or `priv_msg`.
 The following environment variables could be defined depending on the event:
 * USERNAME (name of the triggering user)
 * CHANNEL (source chan)
+* JOINED (list of currently joined chans)
 
 Text of the triggering event is delievered to `stdin`.
 

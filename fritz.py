@@ -118,7 +118,7 @@ class Fritz(SimpleIRCClient):
 			print(f">> {event_name}: {{{data}}}")
 
 		data["JOINED"] = ":".join(self.joined)
-		data["EVENT"]  = event_name.upper()
+		data["EVENT"]  = event_name
 
 		for response in handle_event(event_name, data):
 			if response is None: break

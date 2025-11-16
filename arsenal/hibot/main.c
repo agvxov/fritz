@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#include <signal.h>
-#include <sys/time.h>
+#include <time.h>
 #include <fcgiapp.h>
+#include "fcgiextra.h"
 
 #define logf_notice(...)
 
@@ -18,13 +18,11 @@
 #define PROGRAM_NAME "hibot"
 #define SOCKET_PATH  PROGRAM_NAME ".sock"
 
-FCGX_Request request;
+FCGX_Request fcgi;
 
 const char * CHANNEL  = NULL;
 const char * USERNAME = NULL;
 const char * MESSAGE  = NULL;
-
-#define DEFAULT_LANGUAGE C
 
 typedef enum {
 	C,
@@ -32,11 +30,12 @@ typedef enum {
 	ASM,
 	ADA,
 } language_t;
+language_t selected_language = C;
 
 typedef void (*syntax_setter_t)(void);
 
 #include "syntax.h"
-#include "timer.h"
+#include "request.h"
 
 syntax_setter_t syntax_functions[] = {
 	[C]   = &syntax_c,
@@ -61,8 +60,8 @@ language_t translate_language(const char * const language) {
 
 static inline
 void irc_message(const char * const message) {
-    FCGX_PutStr(message, strlen(message), request.out);
-    FCGX_PutStr("\n", 1, request.out);
+    FCGX_PutStr(message, strlen(message), fcgi.out);
+    FCGX_PutStr("\n", 1, fcgi.out);
 }
 
 static
@@ -79,19 +78,13 @@ void irc_help() {
 	irc_message("  !help               // print help");
 	irc_message("  !<language>         // set language for next message");
 	irc_message("  <code>              // echo this code");
-	irc_message("  !<language> <code>  // set language and echo code");
-	irc_message("  !--                 // flush all code");
+	irc_message("  --                  // flush all code");
 	irc_message("--");
 }
 
 void flush_request(request_t * request) {
-	setitimer(ITIMER_REAL, NULL, NULL);
-    if (!request_queue_head) {
-        return;
-    }
-
 	// Message header
-	irc_message(USERNAME);
+	irc_message(CHANNEL);
 
     // Message body
     syntax_count = 0;
@@ -105,111 +98,61 @@ void flush_request(request_t * request) {
 
 	logf_notice("Flushed message: %p (%d)", (void*)request, request_queue_head);
 
-    drop_request(request);
+    reinit_request(request);
 }
 
 static
 void event_privmsg(const char * message_) {
 	char * const message_guard = strdup(message_);
 	char *       message       = message_guard;
-	char * terminator;
-	int is_code = 1;
 
 	/* Is command */
 	if (*message == '!') {
 		if (!strcmp(message, "!help")) {
 			irc_help();
-			goto END;
 		}
-		/* */
-		terminator = message;
-		while (*terminator != ' ') {
-			if (*terminator == '\0') {
-				is_code = 0;
-				break;
-			}
-			++terminator;
-		}
-		*terminator = '\0';
-        /* */
-        {
-            request_t * request = take_request(USERNAME);
 
-            if (!strcmp(message, "!--")) {
-                if (request) {
-                    flush_request(request);
-                }
-                goto END;
-            }
+        if (!strncmp(message, "!language ", strlen("!language "))) {
+            char * language_name = message + strlen("!language ");
 
-            /* get language */
-            for (char * s = message + 1; *s != '\0'; s++) {
-                *s = toupper(*s);
-            }
-            int l = translate_language(message + 1);
-            message = terminator + 1;
+            for (char * s = language_name; *s != '\0'; s++) { *s = toupper(*s); }
+
+            int l = translate_language(language_name);
             if (l != -1) {
-                request->language = l;
+                selected_language = l;
             }
         }
+
+		goto end;
 	}
 
-	/* Is code */
-	if (is_code) {
-		request_t * request = take_request(USERNAME);
-		if (!request) {
-			irc_message(USERNAME);
-            irc_message(message_queue_full_message);
-			goto END;
-		}
-
-		touch_request_timer(request);
-		request->buffer[request->buffer_head++] = strdup(message);
-	}
-
-  END:
-	free(message_guard);
-}
-
-char * slurp_FCGX_Stream(FCGX_Stream * stream) {
-    char * r = NULL;
-
-    size_t len = 0;
-    size_t cap = 4096;
-    char buf[4096];
-    r = (char*)malloc(cap * sizeof(char));
-    if (!r) { return r; }
-
-    while (true) {
-        size_t bytes = FCGX_GetStr(buf, sizeof(buf), stream);
-
-        if (bytes > 0) {
-            while (len + bytes > cap) {
-                cap *= 2;
-                r = realloc(r, cap);
-            }
-            memcpy(r + len, buf, bytes);
-            len += bytes;
+    /* Is terminator */
+    if (!strcmp(message, "--")) {
+        request_t * request = take_request(USERNAME);
+        if (request) {
+            flush_request(request);
         }
-
-        if (FCGX_HasSeenEOF(stream)) { break; }
+        goto end;
     }
 
-    r[len] = '\0';
+	/* Is code */
+    request_t * request = take_request(USERNAME);
+    if (!request) {
+        irc_message(USERNAME);
+        irc_message(message_queue_full_message);
+        goto end;
+    }
+    touch_request_timer(request);
+    request->buffer[request->buffer_head++] = strdup(message);
 
-    return r;
+  end:
+	free(message_guard);
 }
 
 int main(void) {
     // Init internals
-	syntax_functions[DEFAULT_LANGUAGE]();
-
-	for (unsigned int i = 0; i < message_queue_size; i++) {
-		request_queue[i] = &request_queue__[i];
-		init_request(request_queue[i]);
-	}
-
-	signal(SIGALRM, on_request_timeout);
+	syntax_functions[selected_language]();
+	init_request(&request);
 
     // Init FCGI
     FCGX_Init();
@@ -220,17 +163,23 @@ int main(void) {
         exit(1);
     }
 
-    FCGX_InitRequest(&request, sock, 0);
+    FCGX_InitRequest(&fcgi, sock, 0);
 
     // Event loop
-    while (FCGX_Accept_r(&request) == 0) {
-        CHANNEL  = FCGX_GetParam("CHANNEL",  request.envp);
-        USERNAME = FCGX_GetParam("USERNAME", request.envp);
-        MESSAGE  = slurp_FCGX_Stream(request.in);
+    while (FCGX_Accept_r(&fcgi) == 0) {
+        char chan_buf[32] = {0};
+        strncpy(chan_buf, FCGX_GetParam("JOINED",  fcgi.envp), sizeof(chan_buf)-1);
+        for (auto s = chan_buf; *s; s++) { if (*s == ':') { *s = '\0'; break; } }
 
-        event_privmsg(MESSAGE);
+        CHANNEL  = chan_buf;
+        USERNAME = FCGX_GetParam("USERNAME", fcgi.envp);
+        MESSAGE  = slurp_FCGX_Stream(fcgi.in);
 
-        FCGX_Finish_r(&request);
+        if (strcmp(USERNAME, PROGRAM_NAME)) {
+            event_privmsg(MESSAGE);
+        }
+
+        FCGX_Finish_r(&fcgi);
     }
 
     return 0;

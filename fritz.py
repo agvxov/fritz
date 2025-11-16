@@ -1,3 +1,5 @@
+# XXX: TODO polling event
+
 import ssl
 import socket
 import ctypes
@@ -9,15 +11,18 @@ from fcgi_client import FastCGIClient
 from irc.client import SimpleIRCClient, ServerConnectionError
 from irc.connection import Factory
 
+poll_tick = 1
+
 # --- ------- ---
 # --- Private ---
 # --- ------- ---
 
 arms = []
 event_queues = {
-	'join'     : [],
-	'part'     : [],
-	'quit'     : [],
+	'poll'	   : [],
+	'join'	   : [],
+	'part'	   : [],
+	'quit'	   : [],
 	'priv_msg' : [],
 	'chan_msg' : [],
 }
@@ -25,7 +30,7 @@ event_queues = {
 # FCGI process wrapper
 class Fritz_arm:
 	def __init__(self, name : str) -> None:
-		self.name      = name
+		self.name	   = name
 		self.sock_path = name.replace('.', '-') + ".sock"
 		self.client    = FastCGIClient(f"unix://{self.sock_path}")
 		pid = fork()
@@ -69,13 +74,15 @@ def add_arm(name, events):
 		event_queues[event].append(arm)
 
 class Fritz(SimpleIRCClient):
-	def __init__(self, server, name, auto_join_list, port=6697, is_ssl=True):
+	def __init__(self, server, nick, auto_join_list, port=6697, is_ssl=True):
 		def ssl_wrapper(sock):
 			context = ssl.create_default_context()
 			return context.wrap_socket(sock, server_hostname="chud.cyou")
 
 		self.connection_time = 0
+		self.nick			 = nick
 		self.auto_join_list  = auto_join_list
+		self.joined			 = []
 
 		if port < 6690:
 			is_ssl = False
@@ -86,7 +93,7 @@ class Fritz(SimpleIRCClient):
 		super().connect(
 			server,
 			port,
-			name,
+			nick,
 			connect_factory = factory
 		)
 
@@ -95,20 +102,31 @@ class Fritz(SimpleIRCClient):
 		self.run()
 
 	def run(self):
+		next_poll = 0
+
 		while self.connection.is_connected():
 			self.reactor.process_once(timeout=.2)
 
+			now = time()
+			if now >= next_poll:
+				self.run_event_handler("poll", {})
+				next_poll = now + poll_tick
+
 	def run_event_handler(self, event_name: str, data: {}):
-		print(f">> {event_name}: {{{data}}}")
-		gen = handle_event(event_name, data)
-		for response in gen:
+		if event_name != "poll":
+			print(f">> {event_name}: {{{data}}}")
+
+		data["JOINED"] = ":".join(self.joined)
+		data["EVENT"]  = event_name.upper()
+
+		for response in handle_event(event_name, data):
 			if response is None: break
 			if response != "":
 				try:
-					lines    = response.splitlines()
+					lines	 = response.splitlines()
 					metadata = lines[0].strip()
-					target   = metadata
-					body     = lines[1:]
+					target	 = metadata
+					body	 = lines[1:]
 				except:
 					print("!! Invalid response.")
 					continue
@@ -123,6 +141,8 @@ class Fritz(SimpleIRCClient):
 	# === Common event handlers ===
 
 	def on_join(self, connection, event):
+		if event.source.nick == self.nick:
+			self.joined.append(event.target)
 		records = {
 			"USERNAME" : event.source.nick,
 			"CHANNEL"  : event.target,

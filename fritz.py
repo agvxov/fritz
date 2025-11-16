@@ -108,11 +108,12 @@ class Fritz(SimpleIRCClient):
 					lines    = response.splitlines()
 					metadata = lines[0].strip()
 					target   = metadata
-					body     = lines[1]
+					body     = lines[1:]
 				except:
 					print("!! Invalid response.")
 					continue
-				self.connection.privmsg(target, body)
+				for l in body:
+					self.connection.privmsg(target, l)
 
 	def on_welcome(self, connection, event):
 		self.connection_time = time()

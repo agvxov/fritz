@@ -20,9 +20,13 @@
 
 FCGX_Request fcgi;
 
-const char * CHANNEL  = NULL;
 const char * USERNAME = NULL;
 const char * MESSAGE  = NULL;
+const char * INPUT_CHANNEL   = NULL;
+/* The channel to dump highlighting to.
+ *  Not neceserally the channel we will respond to.
+ */
+const char * OUTPUT_CHANNEL  = NULL;
 
 typedef enum {
 	C,
@@ -66,7 +70,7 @@ void irc_message(const char * const message) {
 
 static
 void irc_help() {
-    irc_message(USERNAME);
+    irc_message(INPUT_CHANNEL);
 
 	irc_message(PROGRAM_NAME " "
 #include "version.inc"
@@ -83,8 +87,13 @@ void irc_help() {
 }
 
 void flush_request(request_t * request) {
+    // Ignore empty
+    if (!request->buffer_head) {
+        goto end;
+    }
+
 	// Message header
-	irc_message(CHANNEL);
+	irc_message(OUTPUT_CHANNEL);
 
     // Message body
     syntax_count = 0;
@@ -96,13 +105,14 @@ void flush_request(request_t * request) {
 	// Message footer
 	irc_message("--");
 
-	logf_notice("Flushed message: %p (%d)", (void*)request, request_queue_head);
+  end:
+	logf_notice("Flushed message: %p", (void*)request);
 
     reinit_request(request);
 }
 
 static
-void event_privmsg(const char * message_) {
+void handle_message(const char * message_) {
 	char * const message_guard = strdup(message_);
 	char *       message       = message_guard;
 
@@ -124,7 +134,12 @@ void event_privmsg(const char * message_) {
         }
 
 		goto end;
-	}
+	} else {
+        // From public channels, only commands are allowed
+        if (INPUT_CHANNEL[0] == '#') {
+            goto end;
+        }
+    }
 
     /* Is terminator */
     if (!strcmp(message, "--")) {
@@ -171,12 +186,13 @@ int main(void) {
         strncpy(chan_buf, FCGX_GetParam("JOINED",  fcgi.envp), sizeof(chan_buf)-1);
         for (auto s = chan_buf; *s; s++) { if (*s == ':') { *s = '\0'; break; } }
 
-        CHANNEL  = chan_buf;
-        USERNAME = FCGX_GetParam("USERNAME", fcgi.envp);
-        MESSAGE  = slurp_FCGX_Stream(fcgi.in);
+        OUTPUT_CHANNEL = chan_buf;
+        INPUT_CHANNEL  = FCGX_GetParam("CHANNEL", fcgi.envp);
+        USERNAME       = FCGX_GetParam("USERNAME", fcgi.envp);
+        MESSAGE        = slurp_FCGX_Stream(fcgi.in);
 
         if (strcmp(USERNAME, PROGRAM_NAME)) {
-            event_privmsg(MESSAGE);
+            handle_message(MESSAGE);
         }
 
         FCGX_Finish_r(&fcgi);

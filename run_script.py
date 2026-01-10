@@ -18,9 +18,11 @@ fritz.add_arm("hw.out", ['join'])		 # C hello world program
 # Inverts control.
 # Do not call multiple times!
 fritz.Fritz(
-	"chud.cyou",	# server address
+	"127.0.0.1",	# server address
 	"Fritz",		# bot username
-	["#fritz"]		# channels to join
+	["#fritz"],		# channels to join
+	port=6667,
+	is_ssl=False
 )
 
 # NOTE: To implement your own arm, read `fritz.py`!

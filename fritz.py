@@ -88,7 +88,7 @@ class Fritz(SimpleIRCClient):
 		if port < 6690:
 			is_ssl = False
 
-		factory = Factory(wrapper=ssl_wrapper) if is_ssl else irc.connection.Factory()
+		factory = Factory(wrapper=ssl_wrapper) if is_ssl else Factory()
 
 		super().__init__()
 		super().connect(

@@ -178,6 +178,7 @@ class Fritz(SimpleIRCClient):
 		self.run_event_handler("part", records)
 
 	def on_quit(self, connection, event):
+		# NOTE: does NOT fire when executing QUIT, but disconnect does
 		records = {
 			"MESSAGE" : event.arguments[0] if event.arguments else "",
 		}

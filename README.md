@@ -48,10 +48,12 @@ The following environment variables could be defined depending on the event:
 Text of the triggering event is delievered to `stdin`.
 
 The first line of the response is a metadata header for Fritz,
-everything else is a message that should be posted on the server.
-Currently the only metadata is the user/channel name that should be targeted with the message,
-however the right is reserved to add more, semi-colon separated fields to the header.
+everything else is the response body.
+If the header resembles a user or channel name,
+it designates the target that should be messaged.
 If the message body is an empty string, it shall not be posted by Fritz.
+If the header is `!raw`, it signifies that the body is an IRC command that should be executed.
+if the header is `!exit`, Fritz will terminate with 0.
 
 # Usage
 To run a Fritz bot, you need a run script.

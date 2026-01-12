@@ -1,4 +1,7 @@
 // @BAKE gcc -o $*.out $@ -lfcgi
+/* Send back exit order on request.
+ * Useful for automated tests where.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

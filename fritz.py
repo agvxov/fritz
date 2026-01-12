@@ -91,12 +91,16 @@ class Fritz(SimpleIRCClient):
 		factory = Factory(wrapper=ssl_wrapper) if is_ssl else Factory()
 
 		super().__init__()
-		super().connect(
-			server,
-			port,
-			nick,
-			connect_factory = factory
-		)
+		try:
+			super().connect(
+				server,
+				port,
+				nick,
+				connect_factory = factory
+			)
+		except Exception as e:
+			print(f"!! Failed to establish connection: '{e}'.")
+			exit(1)
 
 		signal.signal(signal.SIGINT, sigint_handler)
 

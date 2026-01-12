@@ -16,24 +16,6 @@ class CMDTEST_fritz < Cmdtest::Testcase
   def test_exit
     import_file "test/exit_run_script.py", "./"
 
-    ii_pid = spawn("ii -i . -n emil -s localhost -p 6667")
-    sleep 1
-
     shell "python exit_run_script.py"
-
-    Process.kill("TERM", ii_pid)
-    Process.wait(ii_pid)
   end
-
-  #def test_hw
-  #  import_file "test/hw_run_script.py", "./"
-
-  #  ii_pid = spawn("ii -i . -n emil -s localhost -p 6667")
-  #  sleep 1
-
-  #  shell "python hw_run_script.py"
-
-  #  Process.kill("TERM", ii_pid)
-  #  Process.wait(ii_pid)
-  #end
 end

@@ -3,10 +3,12 @@
 import ssl
 import socket
 import ctypes
+import atexit
 import signal
-from os import fork, execvp, unlink
-from sys import exit
-from time import time, sleep
+import traceback
+from os import fork, execvp, path, unlink, setpgid, kill
+#from sys import exit
+from time import time, sleep, monotonic
 from fcgi_client import FastCGIClient
 from irc.client import SimpleIRCClient, ServerConnectionError
 from irc.connection import Factory
@@ -30,25 +32,36 @@ event_queues = {
 
 # FCGI process wrapper
 class Fritz_arm:
+	def wait_for_socket(self, sock_path, timeout=0.5, interval=0.05):
+		deadline = monotonic() + timeout
+		while monotonic() < deadline:
+			if path.exists(sock_path): return True
+			sleep(interval)
+		return False
 	def __init__(self, name : str) -> None:
 		self.name	   = name
 		self.sock_path = name.replace('.', '-') + ".sock"
-		self.client    = FastCGIClient(f"unix://{self.sock_path}")
-		pid = fork()
-		if pid == 0:
-			ctypes.CDLL("libc.so.6").prctl(1, signal.SIGTERM) # NOTE non-portable
-		else:
+		self.pid = fork()
+		if self.pid == 0:
 			execvp(self.name, f"{name}".split(' '))
+		else:
+			self.wait_for_socket(self.sock_path)
+			self.client = FastCGIClient(f"unix://{self.sock_path}")
 	def request(self, params={}, stdin=b''):
 		return self.client.request(params, stdin)
 
-def sigint_handler(signum, frame):
+def my_atexit():
 	def unlink_sockets():
-		for a in arms: unlink(a.sock_path)
+		for a in arms:
+			try: unlink(a.sock_path)
+			except: traceback.print_exc()
+	def kill_children():
+		for a in arms:
+			kill(a.pid, signal.SIGTERM)
 	unlink_sockets()
-	exit(0)
+	kill_children()
 
-def handle_event(event : str, data : {}):
+def handle_event(event : str, data : {}) -> str | None:
 	message = ''
 
 	if "MESSAGE" in data:
@@ -57,6 +70,9 @@ def handle_event(event : str, data : {}):
 
 	for b in event_queues[event]:
 		response = b.client.request(data, message)
+		if response is None:
+			print(f"!! 'None' response recieved from '{b.name}'")
+			continue
 		r = response.decode(errors='ignore').strip()
 		print("<< " + r)
 		yield r
@@ -80,6 +96,8 @@ class Fritz(SimpleIRCClient):
 			context = ssl.create_default_context()
 			return context.wrap_socket(sock, server_hostname="chud.cyou")
 
+		atexit.register(my_atexit)
+
 		self.connection_time = 0
 		self.nick			 = nick
 		self.auto_join_list  = auto_join_list
@@ -102,8 +120,6 @@ class Fritz(SimpleIRCClient):
 			print(f"!! Failed to establish connection: '{e}'.")
 			exit(1)
 
-		signal.signal(signal.SIGINT, sigint_handler)
-
 		self.run()
 
 	def run(self):
@@ -125,18 +141,24 @@ class Fritz(SimpleIRCClient):
 		data["EVENT"]  = event_name
 
 		for response in handle_event(event_name, data):
-			if response is None: break
-			if response != "":
-				try:
-					lines	 = response.splitlines()
-					metadata = lines[0].strip()
-					target	 = metadata
-					body	 = lines[1:]
-				except:
-					print("!! Invalid response.")
-					continue
+			if response is None: continue
+			if response == "": continue
+			try:
+				lines	 = response.splitlines()
+				metadata = lines[0].strip()
+				target	 = metadata
+				body	 = lines[1:]
+			except:
+				print("!! Invalid response.")
+				continue
+			if metadata == "!raw":
 				for l in body:
-					self.connection.privmsg(target, l)
+					self.connection.send_raw(l)
+				return
+			if metadata == "!exit":
+				exit(0)
+			for l in body:
+				self.connection.privmsg(target, l)
 
 	def on_welcome(self, connection, event):
 		self.connection_time = time()

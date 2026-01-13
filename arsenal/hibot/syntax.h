@@ -119,7 +119,12 @@ static size_t syntax_loop (char   * string,
 			} while (++subset != strlen (syntax_end [select]));
 		}
 	}
-
+	
+	/* XXX:
+	 *  prevents crashes from uninitialized `length`
+	 *  that would come up when a single token is too long;
+	 *  not a real fix, results in "00aaaa [...] aaaaa00aaaa [...]"
+	 */
 	* length = strlen (syntax_end [select]);
 
 	finished:

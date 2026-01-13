@@ -1,4 +1,4 @@
-// @BAKE gcc -o hibot $@ -lfcgi -fsanitize=address -ggdb
+// @BAKE gcc -o hibot $@ -lfcgi -ggdb
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,9 +20,9 @@
 
 FCGX_Request fcgi;
 
-const char * USERNAME = NULL;
-const char * MESSAGE  = NULL;
-const char * INPUT_CHANNEL   = NULL;
+const char * USERNAME      = NULL;
+const char * MESSAGE       = NULL;
+const char * INPUT_CHANNEL = NULL;
 /* The channel to dump highlighting to.
  *  Not neceserally the channel we will respond to.
  */
@@ -191,7 +191,7 @@ int main(void) {
         USERNAME       = FCGX_GetParam("USERNAME", fcgi.envp);
         MESSAGE        = slurp_FCGX_Stream(fcgi.in);
 
-        if (strcmp(USERNAME, PROGRAM_NAME)) {
+        if (strcmp(USERNAME, PROGRAM_NAME)) { // ignore self
             handle_message(MESSAGE);
         }
 

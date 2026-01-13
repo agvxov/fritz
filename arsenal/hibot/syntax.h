@@ -20,7 +20,7 @@ extern void syntax_ada  (void);
 extern void syntax_cpp  (void);
 extern void syntax_fasm (void);
 
-extern char * syntax_highlight (char * string);
+extern char * syntax_highlight (const char * string);
 
 static size_t syntax_count = 0;
 
@@ -119,6 +119,8 @@ static size_t syntax_loop (char   * string,
 			} while (++subset != strlen (syntax_end [select]));
 		}
 	}
+
+	* length = strlen (syntax_end [select]);
 
 	finished:
 
@@ -308,7 +310,7 @@ void syntax_fasm (void) {
 	syntax_rule (1, 1, "_",                          separators, '\0', COLOUR_WHITE);
 }
 
-char * syntax_highlight (char * code) {
+char * syntax_highlight (const char * code) {
 	static char buffer [4096] = "";
 	static char string [4096] = "";
 

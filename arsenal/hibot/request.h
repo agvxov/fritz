@@ -4,12 +4,15 @@
 const int          message_timeout            = 10;
 const char * const message_queue_full_message = "Air space too crowded in this area.";
 
+// As defined in the official specification for IRC
+#define IRC_MESSAGE_MAX 512
+
 typedef struct {
 	char * user;
 	language_t language;
 	time_t expiry;
-	char * buffer[256];			// XXX: no overflow detection/avertion
-	unsigned int buffer_head;   //       is implemented on this bunch
+	char * buffer[IRC_MESSAGE_MAX];
+	unsigned int buffer_head;
 } request_t;
 
 request_t request;

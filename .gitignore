@@ -3,3 +3,4 @@ __pycache__/
 arsenal/hibot/hibot
 .cmdtest-filter
 tmp-cmdtest*
+.gdb_history

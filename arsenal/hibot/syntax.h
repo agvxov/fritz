@@ -330,10 +330,10 @@ char * syntax_highlight (const char * code) {
 		select = syntax_loop (& string [offset], & length);
 
 		if (select < syntax_count) {
-			strncat (buffer, "\003", 1);
+			strncat (buffer, "\003", 2);
 			strncat (buffer, syntax_colour [select], 2);
 			strncat (buffer, & string [offset], (size_t) length);
-			strncat (buffer, "\017", 1);
+			strncat (buffer, "\017", 2);
 		} else {
 			strncat (buffer, & string [offset], (size_t) length);
 		}

@@ -1,4 +1,4 @@
-// @BAKE gcc -o $*.out $@ -Wall -Wpedantic -ggdb
+// @BAKE gcc -o $*.out $@ -std=c23 -Wall -Wpedantic -ggdb
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>

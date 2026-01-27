@@ -1,4 +1,4 @@
-// @BAKE gcc -o hibot $@ -lfcgi -ggdb
+// @BAKE gcc -o hibot $@ -std=c23 -lfcgi -ggdb
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>

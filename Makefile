@@ -1,7 +1,8 @@
-.PHONY: arsenal
+.PHONY: arsenal hibot
 
-arsenal:
-	bake arsenal/hw.c
-	bake arsenal/exit.c
-	cd arsenal/hibot/ && bake main.c
-	cd arsenal/hibot/ && bake test.c
+arsenal: arsenal/hw.out arsenal/exit.out hibot
+
+hibot: arsenal/hibot/hibot.out arsenal/hibot/test.out
+
+%.out: %.c
+	${CC} ${CFLAGS} -o $@ $^ -lfcgi

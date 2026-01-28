@@ -11,7 +11,7 @@ use FCGI;
 #my $feed_uri = 'http://127.0.0.1:5050/myfeed.atom';
 my $feed_uri = 'https://www.youtube.com/feeds/videos.xml?channel_id=UCD6VugMZKRhSyzWEWA9W2fg';
 
-my $socket_path = "sneeds_feed_client-pl.sock";
+my $socket_path = "sneeds_feed_read-pl.sock";
 my $socket      = FCGI::OpenSocket($socket_path, 5);  # backlog 5
 my $request     = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV, $socket);
 

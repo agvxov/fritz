@@ -135,6 +135,23 @@ class Fritz(SimpleIRCClient):
 
 		self.run()
 
+	# === Privmsg humilation ritual ===
+	# The library provided privmsg() is a foot gun:
+	#  * for messages which are too long for the IRC protocol,
+	#     it does not perform auto splitting to handle long messages,
+	#     but throws instead
+	#  * for messages which are short enough for IRC,
+	#     but for _some fucking reason_ too long for the library,
+	#     it fails silently
+	#     (bug report pending) # XXX insert link
+	def privmsg(self, target : str, message : str):
+		safe_magick_lenght = 160
+		n_free_bytes = safe_magick_lenght - len('PRIVMSG  :\r\n') - len(target.encode('utf-8'))
+		raw_message = message.encode('utf-8')
+		for m in [raw_message[i:i+n_free_bytes] for i in range(0, len(raw_message), n_free_bytes)]:
+			self.connection.privmsg(target, m.decode('utf-8', errors='ignore'))
+	# === === ===
+
 	def insert_global_data(self, data : {str : str}, event_name : str) -> {str : str}:
 		data["JOINED"] = ":".join(self.joined)
 		data["EVENT"]  = event_name
@@ -159,7 +176,7 @@ class Fritz(SimpleIRCClient):
 		if metadata == "!exit":
 			exit(0)
 		for l in body:
-			self.connection.privmsg(target, l)
+			self.privmsg(target, l)
 
 	def run_irc_event_handler(self, event_name: str, data: {}):
 		print(f">> {event_name}: {{{data}}}")

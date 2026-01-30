@@ -1,7 +1,5 @@
 import ssl
 import heapq
-import socket
-import ctypes
 import atexit
 import signal
 import traceback

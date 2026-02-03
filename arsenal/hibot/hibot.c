@@ -16,7 +16,7 @@
 #define endswitchs } } while (0)
 
 #define PROGRAM_NAME "hibot"
-#define SOCKET_PATH  PROGRAM_NAME ".sock"
+#define SOCKET_PATH  PROGRAM_NAME "-out.sock"
 
 FCGX_Request fcgi;
 

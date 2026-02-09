@@ -4,13 +4,28 @@
 #include <assert.h>
 #include "syntax.h"
 
-const char input[] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-
 int main(void) {
-	assert(sizeof(input) == 512);
-
 	syntax_c();
-	puts(syntax_highlight(input));
+
+    do {
+        const char input[] = "AM: hate";
+        puts(syntax_highlight(input));
+    } while (0);
+
+    do {
+        const char input[] = "juice";
+        puts(syntax_highlight(input));
+    } while (0);
+
+    do {
+        const char input[] = "AM: hate";
+        puts(syntax_highlight(input));
+    } while (0);
+
+    do {
+        const char input[] = "juice";
+        puts(syntax_highlight(input));
+    } while (0);
 
 	return 0;
 }

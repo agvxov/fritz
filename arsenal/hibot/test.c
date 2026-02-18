@@ -5,27 +5,12 @@
 #include "syntax.h"
 
 int main(void) {
-	syntax_c();
+    syntax_c();
 
     do {
-        const char input[] = "AM: hate";
+        const char input[] = "static";
         puts(syntax_highlight(input));
     } while (0);
 
-    do {
-        const char input[] = "juice";
-        puts(syntax_highlight(input));
-    } while (0);
-
-    do {
-        const char input[] = "AM: hate";
-        puts(syntax_highlight(input));
-    } while (0);
-
-    do {
-        const char input[] = "juice";
-        puts(syntax_highlight(input));
-    } while (0);
-
-	return 0;
+    return 0;
 }

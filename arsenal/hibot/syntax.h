@@ -47,8 +47,8 @@ static void syntax_rule (bool   enrange,
 		return;
 	}
 
-	strncpy (syntax_begin [syntax_count], begin, STRING_LIMIT);
-	strncpy (syntax_end   [syntax_count], end,   STRING_LIMIT);
+	strncpy (syntax_begin [syntax_count], begin, STRING_LIMIT - 1);
+	strncpy (syntax_end   [syntax_count], end,   STRING_LIMIT - 1);
 
 	syntax_enrange [syntax_count] = enrange;
 	syntax_derange [syntax_count] = derange;
@@ -60,10 +60,10 @@ static void syntax_rule (bool   enrange,
 
 static size_t syntax_loop (const char   * string,
                                  size_t * length) {
-	size_t offset = 0, subset = 0, select = 0;
+	size_t offset = 0, subset = 0, select = 0, end_length = 0, begin_length = 0;
 
 	for (; select < syntax_count; ++select) {
-		size_t begin_length = strlen (syntax_begin [select]);
+		begin_length = strlen (syntax_begin [select]);
 
 		if (syntax_enrange [select] == false) {
 			if (syntax_derange [select] == false) {
@@ -72,7 +72,7 @@ static size_t syntax_loop (const char   * string,
 				}
 			} else {
 				if ((! strncmp (string, syntax_begin [select], begin_length))
-				&&  (strchr (syntax_end [select], string [offset + begin_length]))) {
+				&&  (strchr (syntax_end [select], string [offset + begin_length]) != NULL)) {
 					break;
 				}
 			}
@@ -92,7 +92,7 @@ static size_t syntax_loop (const char   * string,
 		return (select);
 	}
 
-	size_t end_length = strlen (syntax_end [select]);
+	end_length = strlen (syntax_end [select]);
 
 	for (offset = 1; string [offset - 1] != '\0'; ++offset) {
 		if (string [offset] == syntax_escape [select]) {

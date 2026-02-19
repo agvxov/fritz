@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdckdint.h>
 
 /* Roll dice in accordance with /qst/'s format.
  *
@@ -56,7 +57,7 @@ char * qst_dice(const char * const script) {
 
     int e = sscanf(script, "dice+%zud%zu+%ld", &n_dice, &n_sides, &modifier);
 
-    size_t max_chars;
+    size_t max_chars = 0;
 
     if (e != 2
     &&  e != 3) {
@@ -68,22 +69,30 @@ char * qst_dice(const char * const script) {
         return NULL;
     }
 
-    max_chars = 0
-        + strlen("Rolled ")
-        + (count_digits(n_sides) * (count_digits(n_dice) + strlen(", ")))
-        + (count_digits(SIZE_MAX) * (n_dice > 1))
-        + count_digits(n_sides) + count_digits(n_dice) + strlen(" (d)")
-        + 1
-    ;
-
-    if (e == 3) {
-        has_modifier  = true;
-        modifier_sign = modifier > 0;
-        modifier     *= modifier_sign ? 1 : -1;
-        max_chars += 0
-            + (strlen(" + ") + count_digits(modifier)) * 2
+    do {
+        size_t intermediate = 0;
+        int ee = 0
+            + ckd_add(&max_chars, max_chars, strlen("Rolled "))
+            + ckd_mul(&intermediate, n_dice, count_digits(n_sides) + strlen(", "))
+            + ckd_add(&max_chars, max_chars, intermediate)
+            + ckd_add(&max_chars, max_chars, count_digits(SIZE_MAX) * (n_dice > 1) + strlen(" = "))
+            + ckd_add(&max_chars, max_chars, strlen(" (d)") + 1)
+            + ckd_add(&max_chars, max_chars, count_digits(n_sides))
+            + ckd_add(&max_chars, max_chars, count_digits(n_dice))
         ;
-    }
+
+        if (e == 3) {
+            has_modifier  = true;
+            modifier_sign = modifier > 0;
+            modifier     *= modifier_sign ? 1 : -1;
+
+            ee += ckd_add(&max_chars, max_chars, (strlen(" + ") + count_digits(modifier)) * 2);
+        }
+
+        if (ee) {
+            return strdup("Overflow");
+        }
+    } while (0);
 
     r = malloc(max_chars);
     if (!r) { return NULL; }

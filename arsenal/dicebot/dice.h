@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <stdckdint.h>
 
 /* Roll dice in accordance with /qst/'s format.
  *
@@ -33,13 +32,13 @@ int count_digits(long long n) {
 
     int count = 0;
     if (n < 0) {
-        count++; // for '-'
+        ++count; // for '-'
         n = -n;
     }
 
     while (n > 0) {
         n /= 10;
-        count++;
+        ++count;
     }
 
     return count;
@@ -55,44 +54,51 @@ char * qst_dice(const char * const script) {
     long   modifier;
     bool   modifier_sign;
 
-    int e = sscanf(script, "dice+%zud%zu+%ld", &n_dice, &n_sides, &modifier);
 
-    size_t max_chars = 0;
+    /* Invalid storage is UB.
+     * This includes negative input (-1) provided with unsigned variables (size_t).
+     * In practice, (GNU) libc will read the input, indicate no error
+     *  and creating a wraparound.
+     */
+    int e = sscanf(script, "dice+%zud%zu+%ld", &n_dice, &n_sides, &modifier);
 
     if (e != 2
     &&  e != 3) {
         return NULL;
     }
 
-    if (n_dice == 0
+    if (n_dice  == 0
     ||  n_sides == 0) {
         return NULL;
     }
 
-    do {
-        size_t intermediate = 0;
-        int ee = 0
-            + ckd_add(&max_chars, max_chars, strlen("Rolled "))
-            + ckd_mul(&intermediate, n_dice, count_digits(n_sides) + strlen(", "))
-            + ckd_add(&max_chars, max_chars, intermediate)
-            + ckd_add(&max_chars, max_chars, count_digits(SIZE_MAX) * (n_dice > 1) + strlen(" = "))
-            + ckd_add(&max_chars, max_chars, strlen(" (d)") + 1)
-            + ckd_add(&max_chars, max_chars, count_digits(n_sides))
-            + ckd_add(&max_chars, max_chars, count_digits(n_dice))
+    /* qst_dice() would happily start calculating an absurdly amount of dice rolls.
+     * Which is a problem when using it on a server, as it will become a CPU hog
+     *  and effectively a DOS.
+     * Consequently, this check is provided to restrict the rolls to a sane range.
+     * This also means that overflows are impossible (on 64bits).
+     */
+    if (n_dice  > 1'000
+    ||  n_sides > 10'000'000) {
+        return NULL;
+    }
+
+    size_t max_chars = 0
+        + strlen("Rolled ")
+        + (n_dice * (count_digits(n_sides) + strlen(", ")))
+        + ((count_digits(SIZE_MAX) + strlen(" = ")) * (n_dice > 1))
+        + count_digits(n_sides) + count_digits(n_dice) + strlen(" (d)")
+        + 1
+    ;
+
+    if (e == 3) {
+        has_modifier  = true;
+        modifier_sign = modifier > 0;
+        modifier     *= modifier_sign ? 1 : -1;
+        max_chars    += 0
+            + (strlen(" + ") + count_digits(modifier)) * 2
         ;
-
-        if (e == 3) {
-            has_modifier  = true;
-            modifier_sign = modifier > 0;
-            modifier     *= modifier_sign ? 1 : -1;
-
-            ee += ckd_add(&max_chars, max_chars, (strlen(" + ") + count_digits(modifier)) * 2);
-        }
-
-        if (ee) {
-            return strdup("Overflow");
-        }
-    } while (0);
+    }
 
     r = malloc(max_chars);
     if (!r) { return NULL; }

@@ -38,7 +38,7 @@ language_t selected_language = C;
 
 typedef void (*syntax_setter_t)(void);
 
-#include "syntax.h"
+#include "syntax-decorator.h"
 #include "request.h"
 
 syntax_setter_t syntax_functions[] = {
@@ -96,7 +96,6 @@ void flush_request(request_t * request) {
 	irc_message(OUTPUT_CHANNEL);
 
     // Message body
-    syntax_count = 0;
     syntax_functions[request->language]();
     for (unsigned i = 0; i < request->buffer_head; i++) {
         irc_message(syntax_highlight(request->buffer[i]));

@@ -1,396 +1,409 @@
 #ifndef SYNTAX_H
 #define SYNTAX_H
-
-#include <stddef.h>
-#include <string.h>
 #include <stdbool.h>
+#include <string.h>
 
-#define SYNTAX_LIMIT (256)
-#define STRING_LIMIT (64)
-#define BUFFER_LIMIT (256 * 256)
+// E.g: + - * / 0 1
+typedef struct {
+    const char * chars;
+    const char * hl_start;
+    const char * hl_end;
+} char_group_t;
 
-#define COLOUR_WHITE   ("00")
-#define COLOUR_BLUE    ("02")
-#define COLOUR_GREEN   ("03")
-#define COLOUR_RED     ("04")
-#define COLOUR_BROWN   ("05")
-#define COLOUR_MAGENTA ("06")
-#define COLOUR_ORANGE  ("07")
-#define COLOUR_YELLOW  ("08")
-#define COLOUR_CYAN    ("11")
-#define COLOUR_PINK    ("13")
-#define COLOUR_GREY    ("14")
+// E.g: short int long
+typedef struct {
+    const char * const * keywords;
+    const char * hl_start;
+    const char * hl_end;
+} keyword_group_t;
 
-extern void syntax_c    (void);
-extern void syntax_ada  (void);
-extern void syntax_cpp  (void);
-extern void syntax_fasm (void);
+// E.g: " \" "
+typedef struct {
+    const char * start;
+    const char * end;
+    const char * escape;
+    const char * hl_start;
+    const char * hl_end;
+} region_t;
 
-extern char * syntax_highlight (const char * string);
+/* Used to determine word boundaries,
+ *  so that partial matches may not result in highlighting.
+ * This also means that keywords may only contain characters
+ *  which are listed here.
+ * XXX: i believe unicode should work out of pure accident
+ */
+const char * const word_characters =
+  #ifdef SYNTAX_WORD_CHARACTERS
+    SYNTAX_WORD_CHARACTERS
+  #else
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "abcdefghijklmnopqrstuvwxyz"
+    "0123456789"
+    "_-"
+  #endif
+;
 
-static size_t syntax_count = 0;
+extern int syntax_init(void);
+extern int syntax_deinit(void);
+extern int syntax_define_chars(const char * chars, const char * hl_start, const char * hl_end);
+extern int syntax_define_keywords(const char * const * keywords, const char * hl_start, const char * hl_end);
+extern int syntax_define_region(const char * start, const char * end, const char * escape, const char * hl_start, const char * hl_end);
+extern size_t syntax_max_memory_requirement(size_t input_len);
+extern void syntax_highlight_string(char * const destination, const char * const source, const size_t destination_size);
 
-static bool   syntax_enrange [SYNTAX_LIMIT];
-static bool   syntax_derange [SYNTAX_LIMIT];
-static char   syntax_begin   [SYNTAX_LIMIT] [STRING_LIMIT];
-static char   syntax_end     [SYNTAX_LIMIT] [STRING_LIMIT];
-static char   syntax_escape  [SYNTAX_LIMIT];
-static char * syntax_colour  [SYNTAX_LIMIT];
+/* Char groups are optimized such that if multiple chars of the same group follow each other,
+ *  only one hl_start and hl_end will be used.
+ */
 
-static void syntax_rule (bool   enrange,
-                         bool   derange,
-                         char * begin,
-                         char * end,
-                         char   escape,
-                         char * colour) {
-	if (syntax_count >= SYNTAX_LIMIT) {
-		return;
-	}
+/* When faced with a keyword only partially fitting,
+ * there are only a few options:
+ *   1) cut indiscriminately -> risk partial escape sequences forming eldritch outputs
+ *   2) cut the keyword -> effectively highlight partial matches
+ *   3) insert hl_start and discard the keyword or hl_end -> produce puzzling output that feels like a bug
+ *   4) threat the operation as atomic -> waste buffer space, make strlen(destination) != sizeof(destination)-1
+ * We found option 4 the least problematic.
+ *
+ * Char groups truncate as if every character was its own keyword,
+ *  memory optimization is considered as a second thought.
+ * I.e. atleast one and as many chars as possible will be placed between hl_start and hl_end,
+ *  or there won't be a trace at all.
+ *
+ * We apply the same logic for region starts themselves, however not the contents of a region.
+ * That is, for example a truncated string will render as a unterminated string.
+ * This behaviour is consistent with the string actually missing a termination.
+ */
+#endif
 
-	strncpy (syntax_begin [syntax_count], begin, STRING_LIMIT - 1);
-	strncpy (syntax_end   [syntax_count], end,   STRING_LIMIT - 1);
+#ifdef SYNTAX_IMPLEMENTATION
+#ifndef SYNTAX_DEFINITION_MAX
+#  define SYNTAX_DEFINITION_MAX 16
+#endif
+static char_group_t char_groups[SYNTAX_DEFINITION_MAX];
+static int char_groups_empty_top;
+static keyword_group_t keyword_groups[SYNTAX_DEFINITION_MAX];
+static int keyword_groups_empty_top;
+static region_t regions[SYNTAX_DEFINITION_MAX];
+static int regions_empty_top;
 
-	syntax_enrange [syntax_count] = enrange;
-	syntax_derange [syntax_count] = derange;
-	syntax_escape  [syntax_count] = escape;
-	syntax_colour  [syntax_count] = colour;
+int syntax_init(void) {
+    char_groups_empty_top    = 0;
+    keyword_groups_empty_top = 0;
+    regions_empty_top        = 0;
 
-	++syntax_count;
+    return 0;
 }
 
-static size_t syntax_loop (const char   * string,
-                                 size_t * length) {
-	size_t offset = 0, subset = 0, select = 0, end_length = 0, begin_length = 0;
-
-	for (; select < syntax_count; ++select) {
-		begin_length = strlen (syntax_begin [select]);
-
-		if (syntax_enrange [select] == false) {
-			if (syntax_derange [select] == false) {
-				if (! strncmp (string, syntax_begin [select], begin_length)) {
-					break;
-				}
-			} else {
-				if ((! strncmp (string, syntax_begin [select], begin_length))
-				&&  (strchr (syntax_end [select], string [offset + begin_length]) != NULL)) {
-					break;
-				}
-			}
-		} else {
-			for (subset = 0; subset != begin_length; ++subset) {
-				if (string [offset] == syntax_begin [select] [subset]) {
-					goto selected;
-				}
-			}
-		}
-	}
-
-	selected:
-
-	if (select >= syntax_count) {
-		* length = 1;
-		return (select);
-	}
-
-	end_length = strlen (syntax_end [select]);
-
-	for (offset = 1; string [offset - 1] != '\0'; ++offset) {
-		if (string [offset] == syntax_escape [select]) {
-			++offset;
-			continue;
-		}
-
-		if (syntax_derange [select] == true) {
-			subset = 0;
-			if (end_length == 0) {
-				break;
-			} do {
-				if (string [offset] == syntax_end [select] [subset]) {
-					* length = offset;
-					goto finished;
-				}
-			} while (++subset != end_length);
-		} else {
-			if (end_length != 0) {
-				if (! strncmp (& string [offset], syntax_end [select], end_length)) {
-					* length = offset + end_length;
-					return (select);
-				}
-			} else {
-				* length = 1;
-				return (select);
-			}
-		}
-	}
-
-	finished:
-
-	return (select);
+int syntax_deinit(void) {
+    return 0;
 }
 
-void syntax_c (void) {
-	char * separators = " .,:;<=>+-*/%!&~^?|()[]{}'\"\t\r\n";
+int syntax_define_chars(
+  const char * chars,
+  const char * hl_start,
+  const char * hl_end
+) {
+    if (char_groups_empty_top >= SYNTAX_DEFINITION_MAX
+    ||  !chars) {
+        return 1;
+    }
 
-	char * keywords [] = {
-		"register",         "volatile",         "auto",             "const",
-		"static",           "extern",           "if",               "else",
-		"do",               "while",            "for",              "continue",
-		"switch",           "case",             "default",          "break",
-		"enum",             "union",            "struct",           "typedef",
-		"goto",             "void",             "return",           "sizeof",
-		"char",             "short",            "int",              "long",
-		"signed",           "unsigned",         "float",            "double"
-	};
+    char_groups[char_groups_empty_top].chars = chars;
+    char_groups[char_groups_empty_top].hl_start = hl_start;
+    char_groups[char_groups_empty_top].hl_end   = hl_end;
+    ++char_groups_empty_top;
 
-	syntax_count = 0;
-
-	syntax_rule (false, false, "/*", "*/", '\0', COLOUR_GREY);
-	syntax_rule (false, false, "//", "\n", '\0', COLOUR_GREY);
-	syntax_rule (false, false, "#",  "\n", '\\', COLOUR_YELLOW);
-	syntax_rule (false, false, "'",  "'",  '\\', COLOUR_PINK);
-	syntax_rule (false, false, "\"", "\"", '\\', COLOUR_PINK);
-
-	for (size_t word = 0; word != sizeof (keywords) / sizeof (keywords [0]); ++word) {
-		syntax_rule (false, true, keywords [word], separators, '\0', COLOUR_YELLOW);
-	}
-
-	syntax_rule (true, false, "()[]{}",             "", '\0', COLOUR_BLUE);
-	syntax_rule (true, false, ".,:;<=>+*-/%!&~^?|", "", '\0', COLOUR_CYAN);
-
-	syntax_rule (true, true, "0123456789",                 separators, '\0', COLOUR_PINK);
-	syntax_rule (true, true, "abcdefghijklmnopqrstuvwxyz", separators, '\0', COLOUR_WHITE);
-	syntax_rule (true, true, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", separators, '\0', COLOUR_WHITE);
-	syntax_rule (true, true, "_",                          separators, '\0', COLOUR_WHITE);
+    return 0;
 }
 
-void syntax_ada (void) {
-	char * separators = ".,:;<=>+-*/&|()[]@\" \t\r\n";
+int syntax_define_keywords(
+  const char * const * keywords,
+  const char * hl_start,
+  const char * hl_end
+) {
+    if (keyword_groups_empty_top >= SYNTAX_DEFINITION_MAX
+    ||  !keywords) {
+        return 1;
+    }
 
-	char * keywords [] = {
-		"abort",            "else",             "new",              "return",
-		"abs",              "elsif",            "not",              "reverse",
-		"abstract",         "end",              "null",             "accept",
-		"entry",            "select",           "access",           "of",
-		"separate",         "aliased",          "exit",             "or",
-		"some",             "all",              "others",           "subtype",
-		"and",              "for",              "out",              "array",
-		"function",         "at",               "tagged",           "generic",
-		"package",          "task",             "begin",            "goto",
-		"pragma",           "body",             "private",          "then",
-		"type",             "case",             "in",               "constant",
-		"until",            "is",               "raise",            "use",
-		"if",               "declare",          "range",            "delay",
-		"limited",          "record",           "when",             "delta",
-		"loop",             "rem",              "while",            "digits",
-		"renames",          "with",             "do",               "mod",
-		"requeue",          "xor",              "procedure",        "protected",
-		"interface",        "synchronized",     "exception",        "overriding",
-		"terminate"
-	};
+    keyword_groups[keyword_groups_empty_top].keywords = keywords;
+    keyword_groups[keyword_groups_empty_top].hl_start = hl_start;
+    keyword_groups[keyword_groups_empty_top].hl_end   = hl_end;
+    ++keyword_groups_empty_top;
 
-	syntax_count = 0;
-
-	syntax_rule (false, false, "--", "\n", '\0', COLOUR_GREY);
-	syntax_rule (false, false, "'",  "'",  '\\', COLOUR_PINK);
-	syntax_rule (false, false, "\"", "\"", '\\', COLOUR_PINK);
-
-	for (size_t word = 0; word != sizeof (keywords) / sizeof (keywords [0]); ++word) {
-		syntax_rule (false, true, keywords [word], separators, '\0', COLOUR_YELLOW);
-	}
-
-	syntax_rule (true, false, "()[]",            "", '\0', COLOUR_BLUE);
-	syntax_rule (true, false, ".,:;<=>+-*/&@|'", "", '\0', COLOUR_CYAN);
-
-	syntax_rule (true, true, "0123456789",                 separators, '\0', COLOUR_PINK);
-	syntax_rule (true, true, "abcdefghijklmnopqrstuvwxyz", separators, '\0', COLOUR_WHITE);
-	syntax_rule (true, true, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", separators, '\0', COLOUR_WHITE);
+    return 0;
 }
 
-void syntax_cpp (void) {
-	char * separators = ".,:;<=>+-*/%!&~^?|()[]{}'\" \t\r\n";
+int syntax_define_region(
+  const char * start,
+  const char * end,
+  const char * escape,
+  const char * hl_start,
+  const char * hl_end
+) {
+    if (regions_empty_top >= SYNTAX_DEFINITION_MAX
+    ||  !start) {
+        return 1;
+    }
 
-	char * keywords [] = {
-		"alignas",          "alignof",          "and",              "and_eq",
-		"asm",              "atomic_cancel",    "atomic_commit",    "atomic_noexcept",
-		"auto",             "bitand",           "bitor",            "bool",
-		"break",            "case",             "catch",            "char",
-		"char8_t",          "char16_t",         "char32_t",         "class",
-		"compl",            "concept",          "const",            "consteval",
-		"constexpr",        "constinit",        "const_cast",       "continue",
-		"co_await",         "co_return",        "co_yield",         "decltype",
-		"default",          "delete",           "do",               "double",
-		"dynamic_cast",     "else",             "enum",             "explicit",
-		"export",           "extern",           "false",            "float",
-		"for",              "friend",           "goto",             "if",
-		"inline",           "int",              "long",             "mutable",
-		"namespace",        "new",              "noexcept",         "not",
-		"not_eq",           "nullptr",          "operator",         "or",
-		"or_eq",            "private",          "protected",        "public",
-		"reflexpr",         "register",         "reinterpret_cast", "requires",
-		"return",           "short",            "signed",           "sizeof",
-		"static",           "static_assert",    "static_cast",      "struct",
-		"switch",           "synchronized",     "template",         "this",
-		"thread_local",     "throw",            "true",             "try",
-		"typedef",          "typeid",           "typename",         "union",
-		"unsigned",         "using",            "virtual",          "void",
-		"volatile",         "wchar_t",          "while",            "xor",
-		"xor_eq",           "final",            "override",         "import",
-		"module",           "transaction_safe"
-	};
+    regions[regions_empty_top].start    = start;
+    regions[regions_empty_top].end      = end;
+    regions[regions_empty_top].escape   = escape;
+    regions[regions_empty_top].hl_start = hl_start;
+    regions[regions_empty_top].hl_end   = hl_end;
+    ++regions_empty_top;
 
-	char * specials [] = {
-		"int8_t",           "int16_t",          "int32_t",          "int64_t",
-		"uint8_t",          "uint16_t",         "uint32_t",         "uint64_t",
-		"FILE",             "std",              "typeof",           "cout",
-		"cin",              "endl",             "timespec",         "tm",
-		"vector",           "stack",            "map",              "unordered_map",
-		"queue",            "deque",
-	};
-
-	syntax_count = 0;
-
-	syntax_rule (false, false, "/*", "*/", '\0', COLOUR_GREY);
-	syntax_rule (false, false, "//", "\n", '\0', COLOUR_GREY);
-	syntax_rule (false, false, "#",  "\n", '\\', COLOUR_YELLOW);
-	syntax_rule (false, false, "'",  "'",  '\\', COLOUR_PINK);
-	syntax_rule (false, false, "\"", "\"", '\\', COLOUR_PINK);
-
-	for (size_t word = 0; word != sizeof (keywords) / sizeof (keywords [0]); ++word) {
-		syntax_rule (false, true, keywords [word], separators, '\0', COLOUR_YELLOW);
-	}
-
-	for (size_t word = 0; word != sizeof (specials) / sizeof (specials [0]); ++word) {
-		syntax_rule (false, true, specials [word], separators, '\0', COLOUR_CYAN);
-	}
-
-	syntax_rule (true, false, "()[]{}",             "", '\0', COLOUR_BLUE);
-	syntax_rule (true, false, ".,:;<=>+*-/%!&~^?|", "", '\0', COLOUR_CYAN);
-
-	syntax_rule (true, true, "0123456789",                 separators, '\0', COLOUR_PINK);
-	syntax_rule (true, true, "abcdefghijklmnopqrstuvwxyz", separators, '\0', COLOUR_WHITE);
-	syntax_rule (true, true, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", separators, '\0', COLOUR_WHITE);
-	syntax_rule (true, true, "_",                          separators, '\0', COLOUR_WHITE);
+    return 0;
 }
 
-void syntax_fasm (void) {
-	char * separators = ".,+-=:;(){}[]%$<> \t\r\n";
+/* Given an input length and the current highlighting,
+ *  return the worst case scenario for the required buffer's size.
+ */
+size_t syntax_max_memory_requirement(
+  size_t input_len
+) {
+    size_t r = input_len;
 
-	char * instructions [] = {
-		"mov",              "movabs",           "movapd",           "movaps",
-		"movebe",           "movsd",            "movsx",            "movzx",
-		"movsxd",           "movd",             "movq",             "movs",
-		"movsb",            "movsw",            "movsd",            "movsq",
-		"cmovmp",           "cmovrcxz",         "cmovc",            "cmovnc",
-		"cmove",            "cmovne",           "cmovz",            "cmovnz",
-		"cmovg",            "cmovng",           "cmovge",           "cmovnge",
-		"cmovl",            "cmovnl",           "cmovle",           "cmovnle",
-		"cmova",            "cmovna",           "cmovae",           "cmovnae",
-		"cmovb",            "cmovnb",           "cmovbe",           "cmovnbe",
-		"cmovs",            "cmovns",           "cmovo",            "cmovno",
-		"cmovp",            "cmovnp",           "cmovpo",           "cmovpe",
-		"cmp",              "cmps",             "cmpsb",            "cmpsw",
-		"cmpsd",            "cmpsq",            "cmpxchg",          "lea",
-		"monitor",          "cpuid",            "in",               "out",
-		"syscall",          "sysenter",         "sysret",           "sysexit",
-		"swap",             "bswap",            "pop",              "push",
-		"call",             "ret",              "enter",            "leave",
-		"and",              "or",               "not",              "neg",
-		"sal",              "sar",              "shl",              "shr",
-		"inc",              "dec",              "add",              "sub",
-		"mul",              "div",              "imul",             "idiv",
-		"nop",              "fnop",             "adc",              "sbb",
-		"aaa",              "aas",              "aam",              "aad",
-		"jmp",              "jrcxz",            "jc",               "jnc",
-		"je",               "jne",              "jz",               "jnz",
-		"jg",               "jng",              "jge",              "jnge",
-		"jl",               "jnl",              "jle",              "jnle",
-		"ja",               "jna",              "jae",              "jnae",
-		"jb",               "jnb",              "jbe",              "jnbe",
-		"js",               "jns",              "jo",               "jno",
-		"jp",               "jnp",              "jpo",              "jpe",
-		"rep",              "repe",             "repz",             "repne",
-		"repnz",            "loop",             "loope",            "loopne"
-	};
+    for (int i = 0; i < keyword_groups_empty_top; i++) {
+        size_t start_len = strlen(keyword_groups[i].hl_start);
+        size_t end_len   = strlen(keyword_groups[i].hl_end);
+        for (const char * const * w = keyword_groups[i].keywords; *w != NULL; w++) {
+            size_t l = strlen(*w);
+            l = (input_len / l)
+              * (l + start_len + end_len)
+            ;
+            if (r < l) {
+                r = l;
+            }
+        }
+    }
 
-	char * registers [] = {
-		"rax",              "rcx",              "rdx",              "rbx",
-		"rsp",              "rbp",              "rsi",              "rdi",
-		"r8",               "r9",               "r10",              "r11",
-		"r12",              "r13",              "r14",              "r15",
-		"eax",              "ecx",              "edx",              "ebx",
-		"esp",              "ebp",              "esi",              "edi",
-		"r8d",              "r9d",              "r10d",             "r11d",
-		"r12d",             "r13d",             "r14d",             "r15d",
-		"ax",               "cx",               "dx",               "bx",
-		"sp",               "bp",               "si",               "di",
-		"r8w",              "r9w",              "r10w",             "r11w",
-		"r12w",             "r13w",             "r14w",             "r15w",
-		"al",               "cl",               "dl",               "bl",
-		"spl",              "bpl",              "sil",              "dil",
-		"r8b",              "r9b",              "r10b",             "r11b",
-		"r12b",             "r13b",             "r14b",             "r15b",
-		"ah",               "ch",               "dh",               "bh"
-	};
+    for (int i = 0; i < regions_empty_top; i++) {
+        size_t l = strlen(regions[i].start)
+                 + strlen(regions[i].end)
+        ;
+        l = (input_len / l)
+          * (l + strlen(regions[i].hl_start) + strlen(regions[i].end))
+        ;
+        if (r < l) {
+            r = l;
+        }
+    }
 
-	char * keywords [] = {
-		"format",           "executable",       "readable",         "writable",
-		"segment",          "sector",           "entry",            "macro",
-		"db",               "dw",               "dd",               "dq",
-		"rb",               "rw",               "rd",               "rq"
-	};
-
-	syntax_count = 0;
-
-	syntax_rule (false, false, ";",  "\n", '\0', COLOUR_GREY);
-	syntax_rule (false, false, "'",  "'",  '\\', COLOUR_PINK);
-	syntax_rule (false, false, "\"", "\"", '\\', COLOUR_PINK);
-
-	for (size_t word = 0; word != sizeof (instructions) / sizeof (instructions [0]); ++word) {
-		syntax_rule (false, true, instructions [word], separators, '\0', COLOUR_YELLOW);
-	}
-
-	for (size_t word = 0; word != sizeof (registers) / sizeof (registers [0]); ++word) {
-		syntax_rule (false, true, registers [word], separators, '\0', COLOUR_CYAN);
-	}
-
-	for (size_t word = 0; word != sizeof (keywords) / sizeof (keywords [0]); ++word) {
-		syntax_rule (false, true, keywords [word], separators, '\0', COLOUR_YELLOW);
-	}
-
-	syntax_rule (true, false, "()[]{}",      "", '\0', COLOUR_BLUE);
-	syntax_rule (true, false, ".,+-=:;%$<>", "", '\0', COLOUR_CYAN);
-
-	syntax_rule (true, true, "0123456789",                 separators, '\0', COLOUR_PINK);
-	syntax_rule (true, true, "abcdefghijklmnopqrstuvwxyz", separators, '\0', COLOUR_WHITE);
-	syntax_rule (true, true, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", separators, '\0', COLOUR_WHITE);
-	syntax_rule (true, true, "_",                          separators, '\0', COLOUR_WHITE);
+    return r;
 }
 
-char * syntax_highlight (const char * code) {
-	static char buffer [BUFFER_LIMIT] = "";
+static
+int _syntax_destination_append(
+  char * * destination,
+  size_t * remaining,
+  const char * source,
+  size_t len
+) {
+    if (*remaining == 0 || len >= *remaining) {
+        return 1;
+    }
 
-	size_t select = 0, length = 0, offset = 0;
-
-	memset (buffer, 0, sizeof (buffer));
-
-	for (offset = 0; offset < strlen (code); offset += length) {
-		select = syntax_loop (& code [offset], & length);
-
-		if (strlen (buffer) >= BUFFER_LIMIT) {
-			break;
-		}
-
-		if (select < syntax_count) {
-			strcat  (buffer, "\003");
-			strncat (buffer, syntax_colour [select], 2);
-			strncat (buffer, & code [offset], length);
-			strcat  (buffer, "\017");
-		} else {
-			strncat (buffer, & code [offset], length);
-		}
-	}
-
-	return (buffer);
+    memcpy(*destination, source, len);
+    *destination += len;
+    *remaining -= len;
+    return 0;
 }
 
+// Core function
+void syntax_highlight_string(
+  char * const destination,
+  const char * const source,
+  const size_t destination_size
+) {
+    if (destination      == NULL
+    ||  source           == NULL
+    ||  destination_size == 0) {
+        return;
+    }
+
+    char * out       = destination;
+    const char * s   = source;
+    size_t remaining = destination_size;
+
+    while (*s) {
+        bool matched = false;
+
+        // Regions
+        for (int i = 0; i < regions_empty_top; i++) {
+            const size_t start_len = strlen(regions[i].start);
+            if (start_len == 0) {
+                continue;
+            }
+
+            if (strncmp(s, regions[i].start, start_len) != 0) {
+                continue;
+            }
+
+            const size_t end_len    = regions[i].end      ? strlen(regions[i].end)    : 0;
+            const size_t escape_len = regions[i].escape   ? strlen(regions[i].escape) : 0;
+            const char * hl_start   = regions[i].hl_start ? regions[i].hl_start       : "";
+            const char * hl_end     = regions[i].hl_end   ? regions[i].hl_end         : "";
+
+            char * const saved_out = out;
+            if (_syntax_destination_append(&out, &remaining, hl_start, strlen(hl_start))
+            ||  _syntax_destination_append(&out, &remaining, regions[i].start, start_len)) {
+                out = saved_out;
+                goto done;
+            }
+
+            s += start_len;
+
+            while (*s) {
+                if (escape_len != 0
+                &&  strncmp(s, regions[i].escape, escape_len) == 0) {
+                    if (_syntax_destination_append(&out, &remaining, regions[i].escape, escape_len)) {
+                        goto done;
+                    }
+                    s += escape_len;
+
+                    if (*s) {
+                        if (_syntax_destination_append(&out, &remaining, s, 1)) {
+                            goto done;
+                        }
+                        ++s;
+                    }
+                    continue;
+                }
+
+                if (end_len != 0
+                &&  strncmp(s, regions[i].end, end_len) == 0) {
+                    if (_syntax_destination_append(&out, &remaining, regions[i].end, end_len)
+                    ||  _syntax_destination_append(&out, &remaining, hl_end, strlen(hl_end))) {
+                        goto done;
+                    }
+                    s += end_len;
+                    matched = true;
+                    break;
+                }
+
+                if (_syntax_destination_append(&out, &remaining, s, 1)) {
+                    goto done;
+                }
+                ++s;
+            }
+
+            if (matched == false) {
+                if (_syntax_destination_append(&out, &remaining, hl_end, strlen(hl_end))) {
+                    goto done;
+                }
+            }
+
+            matched = true;
+            break;
+        }
+
+        if (matched) {
+            continue;
+        }
+
+        // Keywords
+        if (strchr(word_characters, (unsigned char)*s) != NULL) {
+            const char * word_end = s;
+            while (*word_end
+            &&     strchr(word_characters, (unsigned char)*word_end) != NULL) {
+                ++word_end;
+            }
+
+            const size_t word_len = (size_t)(word_end - s);
+
+            for (int i = 0; i < keyword_groups_empty_top && !matched; i++) {
+                const char * const * w = keyword_groups[i].keywords;
+                if (w == NULL) {
+                    continue;
+                }
+
+                for (; *w != NULL; w++) {
+                    const size_t kw_len = strlen(*w);
+                    if (kw_len == word_len && memcmp(s, *w, word_len) == 0) {
+                        const char * hl_start = keyword_groups[i].hl_start ? keyword_groups[i].hl_start : "";
+                        const char * hl_end   = keyword_groups[i].hl_end   ? keyword_groups[i].hl_end   : "";
+
+                        char * const saved_out = out;
+                        if (_syntax_destination_append(&out, &remaining, hl_start, strlen(hl_start))
+                        ||  _syntax_destination_append(&out, &remaining, *w, word_len)
+                        ||  _syntax_destination_append(&out, &remaining, hl_end, strlen(hl_end))) {
+                            out = saved_out;
+                            goto done;
+                        }
+
+                        s = word_end;
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (matched) {
+            continue;
+        }
+
+        // Char
+        for (int i = 0; i < char_groups_empty_top; i++) {
+            const char * chars = char_groups[i].chars;
+            if (chars == NULL) {
+                continue;
+            }
+
+            if (strchr(chars, (unsigned char)*s) == NULL) {
+                continue;
+            }
+
+            const char * run_end = s;
+            while (*run_end && strchr(chars, (unsigned char)*run_end) != NULL) {
+                ++run_end;
+            }
+
+            const char * hl_start = char_groups[i].hl_start ? char_groups[i].hl_start : "";
+            const char * hl_end   = char_groups[i].hl_end   ? char_groups[i].hl_end   : "";
+
+            const size_t hl_start_len = strlen(hl_start);
+            const size_t hl_end_len   = strlen(hl_end);
+
+            if (remaining <= hl_start_len + hl_end_len + 1) {
+                continue;
+            }
+
+            size_t max_payload = remaining - 1 - hl_start_len - hl_end_len;
+            size_t run_len = (size_t)(run_end - s);
+            size_t emit_len = run_len < max_payload ? run_len : max_payload;
+
+            if (emit_len == 0) {
+                continue;
+            }
+
+            if (_syntax_destination_append(&out, &remaining, hl_start, hl_start_len)
+            ||  _syntax_destination_append(&out, &remaining, s, emit_len)
+            ||  _syntax_destination_append(&out, &remaining, hl_end, hl_end_len)) {
+                goto done;
+            }
+
+            s += emit_len;
+            matched = true;
+            break;
+        }
+
+        if (matched) {
+            continue;
+        }
+
+        // Regular text
+        if (_syntax_destination_append(&out, &remaining, s, 1)) {
+            goto done;
+        }
+        ++s;
+    }
+
+  done:
+    if (remaining > 0) {
+        *out = '\0';
+    } else if (destination_size > 0) {
+        destination[destination_size - 1] = '\0';
+    }
+}
 #endif

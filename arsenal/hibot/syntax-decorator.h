@@ -47,13 +47,6 @@ void syntax_c(void) {
         "wchar_t",
     };
     static const char * const group[] = {
-        "template",
-        "class",
-        "decltype",
-        "typeid",
-        "typename",
-    };
-    static const char * const group[] = {
         "enum",
         "struct",
         "typedef",
@@ -131,7 +124,7 @@ void syntax_c(void) {
 void syntax_cpp(void) {
     syntax_c();
 
-    static const char * const logic[] = {
+    static const char * const logic2[] = {
         "and",
         "and_eq",
         "bitand",
@@ -142,6 +135,13 @@ void syntax_cpp(void) {
         "or_eq",
         "xor",
         "xor_eq ",
+    };
+    static const char * const group2[] = {
+        "template",
+        "class",
+        "decltype",
+        "typeid",
+        "typename",
     };
     static const char * const exception[] = {
         "try",
@@ -213,18 +213,19 @@ void syntax_cpp(void) {
         "synchronized",
     };
 
-    syntax_define_chars(logic, IRC_RED, IRC_RST);
-    syntax_define_chars(exception, IRC_YELLOW, IRC_RST);
-    syntax_define_chars(atomic, IRC_GREEN, IRC_RST);
-    syntax_define_chars(cast, IRC_PINK, IRC_RST);
-    syntax_define_chars(constant, IRC_BLUE, IRC_RST);
-    syntax_define_chars(coroutine, IRC_LIGHT_CYAN, IRC_RST);
-    syntax_define_chars(allocation, IRC_YELLOW, IRC_RST);
-    syntax_define_chars(contract, IRC_ORANGE, IRC_RST);
-    syntax_define_chars(protection, IRC_LIGHT_GREEN, IRC_RST);
-    syntax_define_chars(extra_special, IRC_ORANGE, IRC_RST);
-    syntax_define_chars(bullshit1, IRC_PURPLE, IRC_RST);
-    syntax_define_chars(bullshit2, IRC_RED, IRC_RST);
+    syntax_define_keywords(logic2, IRC_RED, IRC_RST);
+    syntax_define_keywords(group2, IRC_LIGHT_GREEN, IRC_RST);
+    syntax_define_keywords(exception, IRC_YELLOW, IRC_RST);
+    syntax_define_keywords(atomic, IRC_GREEN, IRC_RST);
+    syntax_define_keywords(cast, IRC_PINK, IRC_RST);
+    syntax_define_keywords(constant, IRC_BLUE, IRC_RST);
+    syntax_define_keywords(coroutine, IRC_LIGHT_CYAN, IRC_RST);
+    syntax_define_keywords(allocation, IRC_YELLOW, IRC_RST);
+    syntax_define_keywords(contract, IRC_ORANGE, IRC_RST);
+    syntax_define_keywords(protection, IRC_LIGHT_GREEN, IRC_RST);
+    syntax_define_keywords(extra_special, IRC_ORANGE, IRC_RST);
+    syntax_define_keywords(bullshit1, IRC_PURPLE, IRC_RST);
+    syntax_define_keywords(bullshit2, IRC_RED, IRC_RST);
 }
 
 void syntax_fasm(void) {

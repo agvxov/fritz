@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include "syntax.h"
+#include "syntax-decorator.h"
 
 int main(void) {
     syntax_c();

@@ -112,6 +112,7 @@ void syntax_c(void) {
     syntax_define_keywords(group, IRC_LIGHT_GREEN, IRC_RST);
     syntax_define_keywords(value, IRC_PURPLE, IRC_RST);
     syntax_define_keywords(specifier, IRC_LIGHT_GREEN, IRC_RST);
+    syntax_define_keywords(control, IRC_BROWN, IRC_RST);
     syntax_define_keywords(jump, IRC_BROWN, IRC_RST);
     syntax_define_keywords(special, IRC_ORANGE, IRC_RST);
     syntax_define_region("\"", "\"", "\\", IRC_GREEN, IRC_RST);

@@ -224,6 +224,7 @@ void syntax_highlight_string(
     char * out       = destination;
     const char * s   = source;
     size_t remaining = destination_size;
+    bool in_word = false;
 
     while (*s) {
         bool matched = false;
@@ -298,11 +299,17 @@ void syntax_highlight_string(
         }
 
         if (matched) {
+            in_word = false;
             continue;
         }
 
         // Keywords
         if (strchr(word_characters, (unsigned char)*s) != NULL) {
+            if (in_word) {
+                goto keyword_end;
+            }
+            in_word = true;
+
             const char * word_end = s;
             while (*word_end
             &&     strchr(word_characters, (unsigned char)*word_end) != NULL) {
@@ -337,11 +344,15 @@ void syntax_highlight_string(
                     }
                 }
             }
+        } else {
+            in_word = false;
         }
 
         if (matched) {
             continue;
         }
+
+      keyword_end:
 
         // Char
         for (int i = 0; i < char_groups_empty_top; i++) {

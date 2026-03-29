@@ -79,10 +79,10 @@ void irc_help() {
 					" You may direct message it with your code or commands."
 				);
 	irc_message("Syntax:");
-	irc_message("  !help               // print help");
-	irc_message("  !<language>         // set language for next message");
-	irc_message("  <code>              // echo this code");
-	irc_message("  --                  // flush all code");
+	irc_message("  !help            // print help");
+	irc_message("  !language <lang> // set language for next message");
+	irc_message("  <code>           // echo this code");
+	irc_message("  --               // flush all code");
 	irc_message("--");
 }
 

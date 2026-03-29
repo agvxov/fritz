@@ -124,7 +124,7 @@ void syntax_c(void) {
     syntax_define_keywords(special, IRC_ORANGE, IRC_RST);
     syntax_define_region("\"", "\"", "\\", IRC_GREEN, IRC_RST);
     syntax_define_region("'", "'", "\\", IRC_GREEN, IRC_RST);
-    syntax_define_region("#", "", "\n", IRC_GRAY, IRC_RST);
+    syntax_define_region("#", "\n", "", IRC_GRAY, IRC_RST);
     syntax_define_region("//", "\"", "\n", IRC_GRAY, IRC_RST);
     syntax_define_region("/*", "", "*/", IRC_GRAY, IRC_RST);
 }

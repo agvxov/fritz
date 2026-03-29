@@ -45,12 +45,14 @@ void syntax_c(void) {
         "char16_t",
         "char32_t",
         "wchar_t",
+        NULL,
     };
     static const char * const group[] = {
         "enum",
         "struct",
         "typedef",
         "union",
+        NULL,
     };
     static const char * const value[] = {
         "true",
@@ -59,6 +61,7 @@ void syntax_c(void) {
         "FALSE",
         "nullptr",
         "NULL",
+        NULL,
     };
     static const char * const specifier[] = {
         "extern",
@@ -70,12 +73,14 @@ void syntax_c(void) {
         "unsigned",
         "short",
         "long",
+        NULL,
     };
     static const char * const control[] = {
         "break",
         "continue",
         "goto",
         "return",
+        NULL,
     };
     static const char * const jump[] = {
         "if",
@@ -88,6 +93,7 @@ void syntax_c(void) {
         "error",
         "end",
         "done",
+        NULL,
     };
     static const char * const special[] = {
         "sizeof",
@@ -101,6 +107,7 @@ void syntax_c(void) {
         "volatile",
         "asm",
         "fortran",
+        NULL,
     };
     syntax_deinit();
     syntax_init();
@@ -136,6 +143,7 @@ void syntax_cpp(void) {
         "or_eq",
         "xor",
         "xor_eq ",
+        NULL,
     };
     static const char * const group2[] = {
         "template",
@@ -143,37 +151,44 @@ void syntax_cpp(void) {
         "decltype",
         "typeid",
         "typename",
+        NULL,
     };
     static const char * const exception[] = {
         "try",
         "catch",
         "noexcept",
         "throw",
+        NULL,
     };
     static const char * const atomic[] = {
         "atomic_cancel",
         "atomic_commit",
         "atomic_noexcept",
+        NULL,
     };
     static const char * const cast[] = {
         "const_cast",
         "dynamic_cast",
         "reinterpret_cast",
         "static_cast",
+        NULL,
     };
     static const char * const constant[] = {
         "consteval",
         "constexpr",
         "constinit",
+        NULL,
     };
     static const char * const coroutine[] = {
         "co_await",
         "co_return",
         "co_yield",
+        NULL,
     };
     static const char * const allocation[] = {
         "new",
         "delete",
+        NULL,
     };
     static const char * const contract[] = {
         "compl",
@@ -182,16 +197,19 @@ void syntax_cpp(void) {
         "contract_assert",
         "transaction_safe",
         "transaction_safe_dynamic",
+        NULL,
     };
     static const char * const protection[] = {
         "friend",
         "private",
         "protected",
         "public",
+        NULL,
     };
     static const char * const extra_special[] = {
         "trivially_relocatable_if_eligible",
         "replaceable_if_eligible",
+        NULL,
     };
     static const char * const bullshit1[] = {
         "using",
@@ -200,6 +218,7 @@ void syntax_cpp(void) {
         "export",
         "module",
         "requires",
+        NULL,
     };
     static const char * const bullshit2[] = {
         "this",
@@ -212,6 +231,7 @@ void syntax_cpp(void) {
         "operator",
         "reflexpr",
         "synchronized",
+        NULL,
     };
 
     syntax_define_keywords(logic2, IRC_RED, IRC_RST);
@@ -245,6 +265,7 @@ void syntax_fasm(void) {
         "yword",
         "dqqword",
         "zword",
+        NULL,
     };
     static const char * const registers[] = {
         "al",
@@ -339,6 +360,7 @@ void syntax_fasm(void) {
         "bnd1",
         "bnd2",
         "bnd3",
+        NULL,
     };
     static const char * const sizes[] = {
         "db",
@@ -356,6 +378,7 @@ void syntax_fasm(void) {
         "rq",
         "dt",
         "rt",
+        NULL,
     };
     static const char * const directives[] = {
         "define",
@@ -438,6 +461,7 @@ void syntax_fasm(void) {
         "store",
         "binary",
         "entry",
+        NULL,
     };
     static const char * const instructions[] = {
         "bsf",
@@ -1631,6 +1655,7 @@ void syntax_fasm(void) {
         "vextractf32x8",
         "vextractf64x4",
         "vblendmph",
+        NULL,
     };
     syntax_deinit();
     syntax_init();
@@ -1659,6 +1684,7 @@ void syntax_ada(void) {
         "positive",
         "negative",
         "duration",
+        NULL,
     };
     static const char * const errors[] = {
         "constraint_error",
@@ -1666,6 +1692,7 @@ void syntax_ada(void) {
         "storage_error",
         "tasking_error",
         "numeric_error",
+        NULL,
     };
     static const char * const keywords[] = {
         "abort",
@@ -1741,6 +1768,7 @@ void syntax_ada(void) {
         "exception",
         "overriding",
         "terminate",
+        NULL,
     };
     syntax_deinit();
     syntax_init();

@@ -1,4 +1,4 @@
-// @BAKE gcc -o $*.out $@ -std=c23 -Wall -Wpedantic -ggdb
+// @BAKE gcc -o $*.out $@ -std=c23 -Wall -Wpedantic -ggdb -fsanitize=address
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -8,7 +8,7 @@ int main(void) {
     syntax_c();
 
     do {
-        const char input[] = "static";
+        const char input[] = "int f(void) { return 10; }";
         puts(syntax_highlight(input));
     } while (0);
 

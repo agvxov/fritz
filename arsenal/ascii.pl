@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+# NOTE: This bot depends on Figlet being installed on the system!
+
 use strict;
 use warnings;
 use FCGI;
